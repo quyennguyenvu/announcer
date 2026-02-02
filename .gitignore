@@ -1,0 +1,3 @@
+# Only track binary and config files
+.env
+.DS_Store
