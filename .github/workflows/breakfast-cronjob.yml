@@ -1,0 +1,23 @@
+name: Breakfast Cron Job
+
+on:
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  breakfast-cron-job:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout deploy branch
+        uses: actions/checkout@v4
+        with:
+          ref: deploy
+
+      - name: Make binary executable
+        run: chmod +x ./announcer
+
+      - name: Run Announcer Breakfast Job
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          BREAKFAST_LINK: ${{ secrets.BREAKFAST_LINK }}
+        run: ./announcer cronjob breakfast
