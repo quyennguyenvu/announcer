@@ -12,7 +12,7 @@ echo "📦 Backing up binary..."
 cp announcer /tmp/announcer_deploy
 
 echo "🔄 Switching to deploy branch..."
-git checkout --orphan deploy
+git checkout deploy
 
 echo "📁 Updating binary..."
 cp /tmp/announcer_deploy ./announcer
