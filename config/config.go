@@ -3,6 +3,10 @@ package config
 import "os"
 
 type Config struct {
+	BreakfastConfig *BreakfastConfig
+}
+
+type BreakfastConfig struct {
 	BreakfastLink     string
 	DiscordWebhookURL string
 }
@@ -10,7 +14,9 @@ type Config struct {
 // load configuration settings from env
 func LoadConfig() *Config {
 	return &Config{
-		BreakfastLink:     os.Getenv("BREAKFAST_LINK"),
-		DiscordWebhookURL: os.Getenv("DISCORD_WEBHOOK_URL"),
+		BreakfastConfig: &BreakfastConfig{
+			BreakfastLink:     os.Getenv("BREAKFAST_LINK"),
+			DiscordWebhookURL: os.Getenv("DISCORD_WEBHOOK_URL"),
+		},
 	}
 }

@@ -3,6 +3,7 @@ package cronjob
 import (
 	"announcer/config"
 	"announcer/internal/app"
+	"announcer/pkg/logger"
 
 	"github.com/spf13/cobra"
 )
@@ -13,7 +14,8 @@ func AnnounceBreakfast() *cobra.Command {
 		Short: "Announce breakfast to Discord",
 		Run: func(*cobra.Command, []string) {
 			cfg := config.LoadConfig()
-			app.RunAnnounceBreakfast(cfg)
+			logger.InitZerolog()
+			app.RunAnnounceBreakfast(cfg.BreakfastConfig)
 		},
 	}
 

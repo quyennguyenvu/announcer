@@ -3,49 +3,56 @@ package app
 import (
 	"announcer/config"
 	"announcer/internal/adapter"
+	"announcer/pkg/logger"
 	"encoding/csv"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 )
 
-func RunAnnounceBreakfast(cfg *config.Config) {
+func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 	// Get today's date in the format used in the CSV (dd/mm/yyyy)
-	today := time.Now().Format("02/01/2006")
-
-	log.Printf("Looking for breakfast menu for date: %s", today)
+	today := time.Now().Add(48 * time.Hour).Format("02/01/2006")
 
 	// Fetch the CSV data
 	resp, err := http.Get(cfg.BreakfastLink)
 	if err != nil {
-		log.Printf("Error fetching CSV data: %v", err)
+		logger.Error("Error fetching CSV data: %v", err)
 		return
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Printf("Error closing response body: %v", err)
+			logger.Error("Error closing response body: %v", err)
 		}
 	}()
 
-	// Parse CSV
+	// Parse CSV - read only needed rows to optimize memory
 	reader := csv.NewReader(resp.Body)
-	records, err := reader.ReadAll()
+	reader.LazyQuotes = true    // Allow bare quotes in fields
+	reader.FieldsPerRecord = -1 // Allow variable number of fields per row
+
+	// Skip first 2 rows
+	for i := range 2 {
+		if _, err := reader.Read(); err != nil {
+			logger.Error("Error skipping row %d: %v", i, err)
+			return
+		}
+	}
+
+	// Read dates row (row index 2)
+	datesRow, err := reader.Read()
 	if err != nil {
-		log.Printf("Error parsing CSV data: %v", err)
+		logger.Error("Error reading dates row: %v", err)
 		return
 	}
 
-	// Check if we have enough rows (need at least 4 rows: 0, 1, 2=dates, 3=food)
-	if len(records) < 4 {
-		log.Printf("CSV doesn't have enough rows (need at least 4, got %d)", len(records))
+	// Read food row (row index 3)
+	foodRow, err := reader.Read()
+	if err != nil {
+		logger.Error("Error reading food row: %v", err)
 		return
 	}
-
-	// Row 3 (index 2) contains dates, Row 4 (index 3) contains food names
-	datesRow := records[2]
-	foodRow := records[3]
 
 	// Find the column with today's date
 	dateColumn := -1
@@ -57,7 +64,7 @@ func RunAnnounceBreakfast(cfg *config.Config) {
 	}
 
 	if dateColumn == -1 {
-		log.Printf("Today's date (%s) not found in the breakfast menu", today)
+		logger.Error("Today's date (%s) not found in the breakfast menu", today)
 
 		// Show available dates for debugging
 		var availableDates []string
@@ -66,29 +73,38 @@ func RunAnnounceBreakfast(cfg *config.Config) {
 				availableDates = append(availableDates, strings.TrimSpace(date))
 			}
 		}
-		log.Printf("Available dates: %v", availableDates)
+		logger.Error("Available dates: %v", availableDates)
 		return
 	}
 
 	// Get the corresponding food item
 	if dateColumn >= len(foodRow) {
-		log.Printf("Food data not available for column %d", dateColumn)
+		logger.Error("Food data not available for column %d", dateColumn)
 		return
 	}
 
 	todaysFood := strings.TrimSpace(foodRow[dateColumn])
 	if todaysFood == "" {
-		log.Printf("No food item specified for today (%s)", today)
+		logger.Error("No food item specified for today (%s)", today)
 		return
 	}
 
+	tomorrow := time.Now().Add(24 * time.Hour)
+	tomorrowFood := "Hối VNPAY cập nhật thực đơn"
+	if tomorrow.Weekday() == time.Saturday {
+		tomorrowFood = "Cuối tuần nghỉ ngơi thôi"
+	}
+	if dateColumn+1 < len(foodRow) {
+		tomorrowFood = strings.TrimSpace(foodRow[dateColumn+1])
+	}
+
 	// Send announcement to Discord as embed with color sidebar
-	title := "🍽️ BREAKFAST ANNOUNCEMENT 🍽️"
-	description := fmt.Sprintf("📅 **Date:** %s\n🍜 **Today's breakfast:** %s\n\nEnjoy your meal! 😋", today, todaysFood)
+	title := "🍽️ Tới công ty ăn sáng thôi 🍽️"
+	description := fmt.Sprintf("📅 **Ngày:** %s\n🍜 **Hôm nay:** %s\n🍜 **Ngày mai:** %s\n\n Chúc ngon miệng! 😋", today, todaysFood, tomorrowFood)
 	color := 16753920 // Orange color for sidebar
 	footerText := ""
 
 	if err := adapter.SendDiscordEmbed(cfg.DiscordWebhookURL, title, description, color, footerText); err != nil {
-		log.Printf("Error sending Discord embed: %v", err)
+		logger.Error("Error sending Discord embed: %v", err)
 	}
 }
