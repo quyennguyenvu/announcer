@@ -91,6 +91,7 @@ func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 
 	tomorrow := time.Now().Add(24 * time.Hour)
 	tomorrowFood := "Hối VNPAY cập nhật thực đơn"
+	logger.Info("Today's date: %s, Tomorrow's date: %s", today, tomorrow.Format("02/01/2006"))
 	if tomorrow.Weekday() == time.Saturday {
 		tomorrowFood = "Cuối tuần nghỉ ngơi thôi"
 	}
@@ -99,7 +100,7 @@ func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 	}
 
 	// Send announcement to Discord as embed with color sidebar
-	title := fmt.Sprintf("🍽️ %s: Tới công ty ăn sáng thôi", today)
+	title := fmt.Sprintf("🍔 %s: Tới công ty ăn sáng thôi", today)
 	description := fmt.Sprintf(
 		"**Hôm nay:** %s\n"+
 			"**Ngày mai:** %s\n\n"+
