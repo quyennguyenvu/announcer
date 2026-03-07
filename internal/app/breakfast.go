@@ -13,7 +13,8 @@ import (
 
 func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 	// Get today's date in the format used in the CSV (dd/mm/yyyy)
-	today := time.Now().Add(-24 * time.Hour).Format("02/01/2006")
+	now := time.Now().Add(-24 * time.Hour)
+	today := now.Format("02/01/2006")
 
 	// Fetch the CSV data
 	resp, err := http.Get(cfg.BreakfastLink)
@@ -89,7 +90,7 @@ func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 		return
 	}
 
-	tomorrow := time.Now().Add(24 * time.Hour)
+	tomorrow := now.Add(24 * time.Hour)
 	tomorrowFood := "Hối VNPAY cập nhật thực đơn"
 	logger.Info("Today's date: %s, Tomorrow's date: %s", today, tomorrow.Format("02/01/2006"))
 	if tomorrow.Weekday() == time.Saturday {
