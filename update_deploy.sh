@@ -22,9 +22,8 @@ git add announcer
 git commit -m "Update binary $(date '+%Y-%m-%d %H:%M:%S')"
 
 echo "✅ Deploy branch updated successfully!"
-echo "💡 You can now push the deploy branch"
 
-echo ""
-echo "Next steps:"
-echo "  git push origin deploy    # Push to remote"
-echo "  git checkout main         # Return to main branch"
+echo "📤 Pushing deploy branch..."
+git push origin deploy
+echo "🔄 Switching back to main branch..."
+git checkout main

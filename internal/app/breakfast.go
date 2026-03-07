@@ -13,7 +13,7 @@ import (
 
 func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 	// Get today's date in the format used in the CSV (dd/mm/yyyy)
-	today := time.Now().Add(48 * time.Hour).Format("02/01/2006")
+	today := time.Now().Add(-24 * time.Hour).Format("02/01/2006")
 
 	// Fetch the CSV data
 	resp, err := http.Get(cfg.BreakfastLink)
@@ -99,8 +99,13 @@ func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 	}
 
 	// Send announcement to Discord as embed with color sidebar
-	title := "🍽️ Tới công ty ăn sáng thôi 🍽️"
-	description := fmt.Sprintf("📅 **Ngày:** %s\n🍜 **Hôm nay:** %s\n🍜 **Ngày mai:** %s\n\n Chúc ngon miệng! 😋", today, todaysFood, tomorrowFood)
+	title := fmt.Sprintf("🍽️ %s: Tới công ty ăn sáng thôi", today)
+	description := fmt.Sprintf(
+		"**Hôm nay:** %s\n"+
+			"**Ngày mai:** %s\n\n"+
+			"Chúc ngon miệng! 😋",
+		todaysFood, tomorrowFood,
+	)
 	color := 16753920 // Orange color for sidebar
 	footerText := ""
 
