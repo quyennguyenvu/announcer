@@ -13,7 +13,7 @@ import (
 
 func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 	// Get today's date in the format used in the CSV (dd/mm/yyyy)
-	now := time.Now().Add(-24 * time.Hour)
+	now := time.Now()
 	today := now.Format("02/01/2006")
 
 	// Fetch the CSV data
@@ -56,48 +56,31 @@ func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 	}
 
 	// Find the column with today's date
-	dateColumn := -1
+	todaysFood := "Nhịn"
 	for i, date := range datesRow {
 		if strings.TrimSpace(date) == today {
-			dateColumn = i
+			todaysFood = strings.TrimSpace(foodRow[i])
 			break
 		}
 	}
 
-	if dateColumn == -1 {
-		logger.Error("Today's date (%s) not found in the breakfast menu", today)
-
-		// Show available dates for debugging
-		var availableDates []string
-		for _, date := range datesRow {
-			if strings.Contains(date, "/") && len(strings.TrimSpace(date)) > 0 {
-				availableDates = append(availableDates, strings.TrimSpace(date))
-			}
-		}
-		logger.Error("Available dates: %v", availableDates)
-		return
-	}
-
-	// Get the corresponding food item
-	if dateColumn >= len(foodRow) {
-		logger.Error("Food data not available for column %d", dateColumn)
-		return
-	}
-
-	todaysFood := strings.TrimSpace(foodRow[dateColumn])
 	if todaysFood == "" {
 		logger.Error("No food item specified for today (%s)", today)
 		return
 	}
 
 	tomorrow := now.Add(24 * time.Hour)
-	tomorrowFood := "Hối VNPAY cập nhật thực đơn"
-	logger.Info("Today's date: %s, Tomorrow's date: %s", today, tomorrow.Format("02/01/2006"))
+	tomorrowsFood := "Nhịn"
 	if tomorrow.Weekday() == time.Saturday {
-		tomorrowFood = "Cuối tuần nghỉ ngơi thôi"
+		tomorrowsFood = "Cuối tuần nghỉ ngơi thôi"
 	}
-	if dateColumn+1 < len(foodRow) {
-		tomorrowFood = strings.TrimSpace(foodRow[dateColumn+1])
+
+	tmrStr := tomorrow.Format("02/01/2006")
+	for i, date := range datesRow {
+		if strings.TrimSpace(date) == tmrStr {
+			tomorrowsFood = strings.TrimSpace(foodRow[i])
+			break
+		}
 	}
 
 	// Send announcement to Discord as embed with color sidebar
@@ -106,7 +89,7 @@ func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 		"**Hôm nay:** %s\n"+
 			"**Ngày mai:** %s\n\n"+
 			"Chúc ngon miệng! 😋",
-		todaysFood, tomorrowFood,
+		todaysFood, tomorrowsFood,
 	)
 	color := 16753920 // Orange color for sidebar
 	footerText := ""
