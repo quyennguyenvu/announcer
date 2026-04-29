@@ -5,25 +5,25 @@
 
 set -e
 
-echo "🔄 Building fresh binary for Linux..."
+echo "\n🔄 Building fresh binary for Linux..."
 GOOS=linux GOARCH=amd64 go build -o announcer
 
-echo "📦 Backing up binary..."
+echo "\n📦 Backing up binary..."
 cp announcer /tmp/announcer_deploy
 
-echo "🔄 Switching to deploy branch..."
+echo "\n🔄 Switching to deploy branch..."
 git checkout deploy
 
-echo "📁 Updating binary..."
+echo "\n📁 Updating binary..."
 cp /tmp/announcer_deploy ./announcer
 
-echo "📝 Committing updated binary..."
+echo "\n📝 Committing updated binary..."
 git add announcer
 git commit -m "Update binary $(date '+%Y-%m-%d %H:%M:%S')"
 
-echo "✅ Deploy branch updated successfully!"
+echo "\n✅ Deploy branch updated successfully!"
 
-echo "📤 Pushing deploy branch..."
+echo "\n📤 Pushing deploy branch..."
 git push origin deploy
-echo "🔄 Switching back to main branch..."
+echo "\n🔄 Switching back to main branch..."
 git checkout main
