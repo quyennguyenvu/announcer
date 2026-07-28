@@ -17,7 +17,7 @@ func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 	today := now.Format("02/01/2006")
 
 	// Fetch the CSV data
-	resp, err := http.Get(cfg.BreakfastLink + "/export?format=csv&gid=513262905")
+	resp, err := http.Get(cfg.BreakfastLink + "/export?format=csv")
 	if err != nil {
 		logger.Error("Error fetching CSV data: %v", err)
 		return
