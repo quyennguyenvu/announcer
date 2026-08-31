@@ -69,6 +69,11 @@ func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 		}
 	}
 
+	if strings.Contains(strings.ToLower(todaysFood), "nghỉ") {
+		logger.Info("Skipping breakfast announcement, today's food is a day off: %s", todaysFood)
+		return
+	}
+
 	if todaysFood == "Nhịn" {
 		description := getNotFoundMessage(cfg)
 
