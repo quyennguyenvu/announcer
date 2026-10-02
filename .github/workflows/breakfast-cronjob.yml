@@ -20,4 +20,6 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           BREAKFAST_LINK: ${{ secrets.BREAKFAST_LINK }}
+          BLESSING_MESSAGE_LINK: ${{ secrets.BLESSING_MESSAGE_LINK }}
+          BLESSING_UPDATE_LINK: ${{ secrets.BLESSING_UPDATE_LINK }}
         run: ./announcer cronjob breakfast

@@ -4,16 +4,24 @@ import (
 	"announcer/config"
 	"announcer/internal/adapter"
 	"announcer/pkg/logger"
+	"bytes"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
+	"io"
+	"math/rand/v2"
 	"net/http"
 	"strings"
 	"time"
 )
 
+// The runner's clock is UTC, which is still yesterday before 7AM in Vietnam.
+// Vietnam has no DST, so a fixed offset needs no tzdata on the runner.
+var vnTZ = time.FixedZone("UTC+7", 7*60*60)
+
 func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 	// Get today's date in the format used in the CSV (dd/mm/yyyy)
-	now := time.Now()
+	now := time.Now().In(vnTZ)
 	today := now.Format("02/01/2006")
 
 	// Fetch the CSV data
@@ -98,18 +106,33 @@ func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 		}
 	}
 
-	// Send announcement to Discord as embed with color sidebar
-	blessing := getBlessingMessage()
-
 	description := fmt.Sprintf(
 		"**Hôm nay:** %s\n"+
-			"**Ngày mai:** %s\n\n"+
-			"%s",
-		todaysFood, tomorrowsFood, blessing,
+			"**Ngày mai:** %s",
+		todaysFood, tomorrowsFood,
 	)
 
+	blessing, err := getBlessingMessage(cfg)
+	switch {
+	case err != nil:
+		logger.Error("Error getting blessing message: %v", err)
+	case blessing == "":
+		logger.Warn("All blessings have been sent, announcing without one")
+	default:
+		description += "\n\n" + blessing
+	}
+
+	// Send announcement to Discord as embed with color sidebar
 	if err := adapter.SendDiscordEmbed(cfg.DiscordWebhookURL, title, description, color, footerText); err != nil {
 		logger.Error("Error sending Discord embed: %v", err)
+		return
+	}
+
+	// Mark only after a successful send so a failed post doesn't use up a blessing
+	if blessing != "" {
+		if err := markBlessingSent(cfg, blessing); err != nil {
+			logger.Error("Error marking blessing as sent: %v", err)
+		}
 	}
 }
 
@@ -123,51 +146,84 @@ func getNotFoundMessage(cfg *config.BreakfastConfig) string {
 		"Ơ kìa, menu đâu mất rồi nhỉ? 😅 [Cùng đi tìm nào!](%s)",
 		"Báo động! Menu hôm nay vẫn còn ngủ quên 😴 [Đánh thức giùm với!](%s)",
 	}
-	msg := notFoundMessages[time.Now().Day()%len(notFoundMessages)]
+	msg := notFoundMessages[time.Now().In(vnTZ).Day()%len(notFoundMessages)]
 	return fmt.Sprintf(msg, cfg.BreakfastLink)
 }
 
-func getBlessingMessage() string {
-	blessings := []string{
-		// Hài hước
-		"Ăn sáng đi, không thì cái bụng réo nguyên buổi họp đó nha! 😂",
-		"Đừng ăn quá no nhé, lát họp ngủ gật là sếp biết liền đó! 😴",
-		"Cấm vừa ăn vừa code! ... ờ mà thôi, kệ, miễn không rớt phím là được. 🤷",
-		"Nhớ nhai 30 lần... à thôi, 5 lần cũng được, kẻo nguội mất ngon! 🍽️",
-		"Bữa sáng miễn phí, nhưng deadline thì không - tỉnh táo lên anh em! ⏰",
-		// Bề trên / uy quyền
-		"Đứng dậy! Ăn sáng! Cày cuốc! Đó là kỷ luật của kẻ thành công! 👑",
-		"Im lặng. Ăn. Cày. Đừng than. Đó là công thức! 🎖️",
-		"Ăn cho hết, không bỏ thừa - đời này không nuôi kẻ phí của! 🦁",
-		"Toàn đội tập hợp! Nạp năng lượng, ra trận, không lùi bước! 🪖",
-		"Đàn ông là phải ăn no, làm việc khỏe, không kêu mệt! 💪",
-		// Thơ mộng
-		"Sáng nay gió nhẹ, nắng hiền, bữa ăn ấm áp đón ngày mới 🌷",
-		"Một bữa sáng, một nụ cười, đủ để cả ngày dài thêm thương 💕",
-		"Một sớm bình yên, một bữa đầy đủ, lòng người cũng nhẹ tênh 🌸",
-		"Hôm nay trời đẹp, đồ ăn ngon, mong lòng người cũng vui 🍃",
-		// Gen-Z
-		"Bữa sáng slay quá, vibe hôm nay chắc chắn lên top trending! 💅",
-		"Ăn sáng xong là vibe của em phất lên ngay, không flop nổi! ✨",
-		"Bữa sáng tuyệt cú mèo, hôm nay chắc chắn không có ngày tệ! 🔥",
-		// Hiền lành / mẹ hiền
-		"Ăn no nhé các con, mẹ thương! 🤱",
-		"Nhớ uống nước nữa nha, đừng có khô cổ cả ngày! 💧",
-		"Ăn từ từ thôi, không ai giành đâu! 😊",
-		// Hiền triết / cụ ông
-		"Cổ nhân dạy: bụng no thì đầu mới sáng. 📜",
-		"Đói thì cáu, no thì khôn. Cả nhà nên chọn khôn. 🦉",
-		"Người ăn sáng đầy đủ là người làm chủ vận mệnh mình. 🧙",
-		// Mọt công nghệ
-		"Bữa sáng load thành công, hệ thống sẵn sàng deploy bản thân! 🔋",
-		"Bữa sáng = git pull năng lượng cho cả ngày, đừng quên commit! 🖥️",
-		"Chúc mọi người ăn xong là tỉnh táo, code không sai một dòng! 🧠",
-		// Châm biếm / kiêu
-		"Bữa sáng đỉnh thế này, không xuất sắc cả ngày mới lạ! 🏆",
-		"Ăn sáng xong rồi thì... đến lượt deadline ăn các bạn nha! 😈",
-		// Ấm áp / đoàn kết
-		"Cùng nhau ăn sáng, cùng nhau cố gắng, cùng nhau về sớm! 🤝",
-		"Chúc cả nhà một ngày bình an, may mắn và nhiều niềm vui! 🌈",
+// getBlessingMessage returns a random blessing not yet marked Sent, or "" when
+// every blessing has been sent.
+func getBlessingMessage(cfg *config.BreakfastConfig) (string, error) {
+	resp, err := http.Get(cfg.BlessingMessageLink + "/export?format=csv")
+	if err != nil {
+		return "", fmt.Errorf("fetching blessings: %w", err)
 	}
-	return blessings[time.Now().Day()%len(blessings)] // Add a random blessing based on the day of the month
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Error("Error closing response body: %v", err)
+		}
+	}()
+
+	// A sheet that isn't shared publicly answers with an HTML sign-in page instead of CSV
+	contentType := resp.Header.Get("Content-Type")
+	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(contentType, "text/csv") {
+		return "", fmt.Errorf("unexpected blessings response: status %d, content type %q", resp.StatusCode, contentType)
+	}
+
+	reader := csv.NewReader(resp.Body)
+	reader.LazyQuotes = true
+	reader.FieldsPerRecord = -1
+	rows, err := reader.ReadAll()
+	if err != nil {
+		return "", fmt.Errorf("parsing blessings: %w", err)
+	}
+
+	// Columns: blessing, Sent. Skip the header row.
+	if len(rows) > 0 {
+		rows = rows[1:]
+	}
+
+	var unsent []string
+	for _, row := range rows {
+		blessing := strings.TrimSpace(row[0])
+		sent := len(row) > 1 && strings.EqualFold(strings.TrimSpace(row[1]), "TRUE")
+		if blessing != "" && !sent {
+			unsent = append(unsent, blessing)
+		}
+	}
+
+	if len(unsent) == 0 {
+		return "", nil
+	}
+
+	return unsent[rand.IntN(len(unsent))], nil
+}
+
+// markBlessingSent ticks Sent for the blessing via the sheet's Apps Script web
+// app (scripts/blessing.gs), since the CSV export link is read-only.
+func markBlessingSent(cfg *config.BreakfastConfig, blessing string) error {
+	payload, err := json.Marshal(map[string]string{"blessing": blessing})
+	if err != nil {
+		return fmt.Errorf("marshaling payload: %w", err)
+	}
+
+	resp, err := http.Post(cfg.BlessingUpdateLink, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("sending update: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Error("Error closing response body: %v", err)
+		}
+	}()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading update response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK || strings.TrimSpace(string(body)) != "ok" {
+		return fmt.Errorf("unexpected update response: status %d, body %q", resp.StatusCode, body)
+	}
+
+	return nil
 }
