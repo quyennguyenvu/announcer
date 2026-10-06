@@ -117,7 +117,8 @@ func RunAnnounceBreakfast(cfg *config.BreakfastConfig) {
 	case err != nil:
 		logger.Error("Error getting blessing message: %v", err)
 	case blessing == "":
-		logger.Warn("All blessings have been sent, announcing without one")
+		logger.Warn("All blessings have been sent, announcing with the default one")
+		description += "\n\n" + getAllBlessingsSentMessage(cfg)
 	default:
 		description += "\n\n" + blessing
 	}
@@ -148,6 +149,15 @@ func getNotFoundMessage(cfg *config.BreakfastConfig) string {
 	}
 	msg := notFoundMessages[time.Now().In(vnTZ).Day()%len(notFoundMessages)]
 	return fmt.Sprintf(msg, cfg.BreakfastLink)
+}
+
+// getAllBlessingsSentMessage nudges everyone to add more blessings to the sheet.
+// It is not a sheet row, so the caller must not mark it sent.
+func getAllBlessingsSentMessage(cfg *config.BreakfastConfig) string {
+	return fmt.Sprintf(
+		"Lời chúc nào cũng đã được gửi đi rồi 🎉 [Cùng góp thêm lời chúc mới cho ngày thêm vui nào!](%s) ✨",
+		cfg.BlessingMessageLink,
+	)
 }
 
 // getBlessingMessage returns a random blessing not yet marked Sent, or "" when
